@@ -46,7 +46,8 @@ const sendEmail = async (from, subject, text, password, to) => {
     service: 'gmail',
     auth: {
       user: 'terrencechungong@gmail.com',
-      pass: 'your_app_specific_password' // Generate an app-specific password in Google Account settings
+      pass: 'yafg picr outr fvrh' // Generate an app-specific password in Google Accountiqjf dmuq ltxe onyt
+ 
     }
   });
 
@@ -261,7 +262,7 @@ app.post('/webhook/bland-ai/call', async (req, res) => {
         },
         { 
           role: "user", 
-          content: `Write a follow up email for ${userName}. The call summary is: ${summaryText}. Include the summary and ask if they have any questions.`
+          content: `Write a follow up email for ${callData.analysis.name}. The call summary is: ${summaryText}. Include the summary and ask if they have any questions.`
         }
       ],
       model: "deepseek-chat",
