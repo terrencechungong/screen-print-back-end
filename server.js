@@ -192,12 +192,12 @@ app.post('/webhook/bland-ai/call', async (req, res) => {
     console.log(callData)
     // Find user by phone number
     const userPhoneNumber = callData.variables.phone_number;
-    const user = await User.findOne({ phoneNumber: userPhoneNumber });
+    // const user = await User.findOne({ phoneNumber: userPhoneNumber });
     
-    if (!user) {
-      console.error(`No user found for phone number: ${userPhoneNumber}`);
-      return res.status(404).json({ error: 'User not found' });
-    }
+    // if (!user) {
+    //   console.error(`No user found for phone number: ${userPhoneNumber}`);
+    //   return res.status(404).json({ error: 'User not found' });
+    // }
 
     const newCall = new Call({
       callId: callData.call_id,
@@ -215,9 +215,9 @@ app.post('/webhook/bland-ai/call', async (req, res) => {
 
     await newCall.save();
 
-    await User.findByIdAndUpdate(user._id, {
-      $push: { calls: newCall._id }
-    });
+    // await User.findByIdAndUpdate(user._id, {
+    //   $push: { calls: newCall._id }
+    // });
 
     res.status(200).json({
       message: 'Call data processed successfully',
