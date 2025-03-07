@@ -41,7 +41,7 @@ const auth = async (req, res, next) => {
 };
 
 // Function to send email
-const sendEmail = async (from, subject, text, password, to) => {
+const sendEmail = async (from, subject, text, password, to, name="") => {
   const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -233,7 +233,7 @@ app.post('/webhook/bland-ai/call', async (req, res) => {
 
     // Find user by phone number
     const userPhoneNumber = callData.variables.to;
-    const user = await User.findOne({ phoneNumber: '1111111111' });
+    const user = await User.findOne({ phoneNumber: userPhoneNumber });
 
     if (!user) {
       console.error(`No user found for phone number: ${userPhoneNumber}`);
@@ -271,7 +271,7 @@ app.post('/webhook/bland-ai/call', async (req, res) => {
     const followUpEmailContent = emailResponse.choices[0].message.content;
 
     // Send email to the user
-    await sendEmail(user.email, 'Follow-up on Your Inquiry', followUpEmailContent, user.password, callData.analysis.email);
+    await sendEmail(user.email, 'Follow-up on Your Inquiry', followUpEmailContent, user.password, callData.analysis.email || 'terrencechungong@gmail.com');
 
 
 
@@ -336,38 +336,51 @@ app.post('/webhook/bland-ai/call', async (req, res) => {
 // Order Form API
 app.post('/api/order', async (req, res) => {
   try {
-    const { userId, name, designDetails, quantity, size, color } = req.body; // Get userId and name from the request body
+    const { userId, name, designDetails, quantity, size, color, email, phone } = req.body;
+    console.log('Order form request body:', req.body);
 
     // Fetch the user from the database using the provided userId
     const user = await User.findById(userId);
+    console.log('Found user:', user);
+    
     if (!user) {
+      console.log('User not found for ID:', userId);
       return res.status(404).json({ error: 'User not found' });
     }
 
     // Create the inquiry text
     const inquiryText = `Order Details:\nDesign: ${designDetails}\nQuantity: ${quantity}\nSize: ${size}\nColor: ${color}`;
+    console.log('Created inquiry text:', inquiryText);
 
     // Create a new opportunity
     const newOpportunity = new Opportunity({
-      name: name, // Use the name from the order form
-      stage: 'NEW LEAD',
+      name: name,
+      stage: 'NEW LEAD', 
       source: 'order form',
       inquiry: inquiryText,
       contactInfo: {
-        email: user.email, // Use the fetched user's email
-        phoneNumber: user.phoneNumber, // Use the fetched user's phone number
-        name: user.name || 'Customer', // Use the fetched user's name
-        companyName: user.companyName || 'Not provided' // Use the fetched user's company name
+        email: email,
+        phoneNumber: phone,
+        name: name || 'Customer',
+        companyName:  'Not provided'
       }
     });
+    console.log('Created new opportunity:', newOpportunity);
 
     await newOpportunity.save();
+    // Add the opportunity to the user's pipeline
+    await User.findByIdAndUpdate(userId, {
+      $push: { pipeline: newOpportunity._id }
+    });
+    console.log('Saved opportunity');
 
     // Send follow-up email using OpenAI
-    const followUpEmailContent = await generateFollowUpEmail(inquiryText, user.email);
+    const followUpEmailContent = await generateFollowUpEmail(inquiryText, user.email, name);
+    console.log('Generated follow-up email content');
 
     // Send the email
-    await sendEmail(user.email, 'Thank you for your order!', followUpEmailContent, user.password, user.email);
+    await sendEmail('terrencechungong@gmail.com', 'Thank you for your order!', followUpEmailContent, user.password, email, name);
+    console.log('Sent follow-up email');
 
     res.status(201).json({ message: 'Order submitted successfully', opportunityId: newOpportunity._id });
   } catch (error) {
@@ -377,7 +390,7 @@ app.post('/api/order', async (req, res) => {
 });
 
 // Function to generate follow-up email content using OpenAI
-const generateFollowUpEmail = async (inquiryText, userEmail) => {
+const generateFollowUpEmail = async (inquiryText, userEmail, name) => {
   const emailResponse = await openai.chat.completions.create({
     messages: [
       { 
@@ -386,7 +399,7 @@ const generateFollowUpEmail = async (inquiryText, userEmail) => {
       },
       { 
         role: "user", 
-        content: `Write a follow-up email for an order inquiry. The details are: ${inquiryText}. Include a thank you note and ask if they have any questions.`
+        content: `Write a follow-up email for an order inquiry. The details are: ${inquiryText}. Include a thank you note and ask if they have any questions. The name of the customer is ${name}.`
       }
     ],
     model: "deepseek-chat",
