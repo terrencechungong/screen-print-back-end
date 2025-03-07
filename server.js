@@ -189,7 +189,7 @@ app.get('/calls/:id', auth, async (req, res) => {
 app.post('/webhook/bland-ai/call', async (req, res) => {
   try {
     const callData = req.body;
-    
+    console.log(callData)
     // Find user by phone number
     const userPhoneNumber = callData.variables.phone_number;
     const user = await User.findOne({ phoneNumber: userPhoneNumber });
