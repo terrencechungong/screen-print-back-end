@@ -43,13 +43,11 @@ const auth = async (req, res, next) => {
 // Function to send email
 const sendEmail = async (from, subject, text, password, to) => {
   const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // true for 465, false for other ports
+    service: 'gmail',
     auth: {
-      user:from, // Your email
-      pass: password, // Your email password
-    },
+      user: 'terrencechungong@gmail.com',
+      pass: 'your_app_specific_password' // Generate an app-specific password in Google Account settings
+    }
   });
 
   const mailOptions = {
@@ -75,7 +73,7 @@ app.post('/register', async (req, res) => {
     user = new User({
       email,
       password,
-      phoneNumber: '1111111111',
+      phoneNumber: '+14154498579',
       personalPhoneNumber: phoneNumber
     });
 
@@ -112,7 +110,7 @@ app.post('/login', async (req, res) => {
 });
 
 // User Routes
-app.get('/me', auth, async (req, res) => {
+app.get('/me', async (req, res) => {
   try {
     const user = await User.findById(req.user._id)
       .populate('pipeline')
@@ -124,31 +122,42 @@ app.get('/me', auth, async (req, res) => {
 });
 
 // Opportunity Routes
-app.post('/opportunities', auth, async (req, res) => {
+app.post('/opportunities', async (req, res) => {
   try {
+    console.log('Request body:', req.body);
+    
     const opportunity = new Opportunity(req.body);
+    console.log('Created opportunity:', opportunity);
+    
     await opportunity.save();
+    console.log('Saved opportunity');
     
     await User.findByIdAndUpdate(req.user._id, {
       $push: { pipeline: opportunity._id }
     });
+    console.log('Updated user pipeline');
 
     res.status(201).json(opportunity);
   } catch (error) {
+    console.error('Error creating opportunity:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-app.get('/opportunities', auth, async (req, res) => {
+app.get('/opportunities', async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).populate('pipeline');
+    const { id } = req.query;
+    console.log('Fetching opportunities',  `for ID: ${id}`);
+    const user = await User.findById(id).populate('pipeline');
+    console.log('Found user with populated pipeline:', user);
     res.json(user.pipeline);
   } catch (error) {
+    console.error('Error fetching opportunities:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-app.get('/opportunities/:id', auth, async (req, res) => {
+app.get('/opportunities/:id', async (req, res) => {
   try {
     const opportunity = await Opportunity.findById(req.params.id);
     if (!opportunity) {
@@ -160,7 +169,7 @@ app.get('/opportunities/:id', auth, async (req, res) => {
   }
 });
 
-app.put('/opportunities/:id', auth, async (req, res) => {
+app.put('/opportunities/:id', async (req, res) => {
   try {
     const opportunity = await Opportunity.findByIdAndUpdate(
       req.params.id,
@@ -176,7 +185,7 @@ app.put('/opportunities/:id', auth, async (req, res) => {
   }
 });
 
-app.delete('/opportunities/:id', auth, async (req, res) => {
+app.delete('/opportunities/:id', async (req, res) => {
   try {
     const opportunity = await Opportunity.findByIdAndDelete(req.params.id);
     if (!opportunity) {
@@ -194,7 +203,7 @@ app.delete('/opportunities/:id', auth, async (req, res) => {
 });
 
 // Call Routes
-app.get('/calls', auth, async (req, res) => {
+app.get('/calls', async (req, res) => {
   try {
     const user = await User.findById(req.user._id).populate('calls');
     res.json(user.calls);
@@ -203,7 +212,7 @@ app.get('/calls', auth, async (req, res) => {
   }
 });
 
-app.get('/calls/:id', auth, async (req, res) => {
+app.get('/calls/:id', async (req, res) => {
   try {
     const call = await Call.findById(req.params.id);
     if (!call) {
