@@ -386,7 +386,7 @@ const generateFollowUpEmail = async (inquiryText, userEmail) => {
 };
 
 // MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI)
+mongoose.connect('mongodb+srv://terrencechungong:qdaFK6cBxJ5CCAw0@cluster0.nwvnp.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0')
   .then(() => {
     console.log('MongoDB connection established successfully');
     const PORT = process.env.PORT || 5000;
