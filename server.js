@@ -9,7 +9,7 @@ const Opportunity = require('./models/Opportunity');
 const nodemailer = require('nodemailer');
 const axios = require('axios');
 require('dotenv').config();
-
+const OpenAI = require('openai');
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -322,6 +322,68 @@ app.post('/webhook/bland-ai/call', async (req, res) => {
     });
   }
 });
+
+// Order Form API
+app.post('/api/order', async (req, res) => {
+  try {
+    const { userId, name, designDetails, quantity, size, color } = req.body; // Get userId and name from the request body
+
+    // Fetch the user from the database using the provided userId
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Create the inquiry text
+    const inquiryText = `Order Details:\nDesign: ${designDetails}\nQuantity: ${quantity}\nSize: ${size}\nColor: ${color}`;
+
+    // Create a new opportunity
+    const newOpportunity = new Opportunity({
+      name: name, // Use the name from the order form
+      stage: 'NEW LEAD',
+      source: 'order form',
+      inquiry: inquiryText,
+      contactInfo: {
+        email: user.email, // Use the fetched user's email
+        phoneNumber: user.phoneNumber, // Use the fetched user's phone number
+        name: user.name || 'Customer', // Use the fetched user's name
+        companyName: user.companyName || 'Not provided' // Use the fetched user's company name
+      }
+    });
+
+    await newOpportunity.save();
+
+    // Send follow-up email using OpenAI
+    const followUpEmailContent = await generateFollowUpEmail(inquiryText, user.email);
+
+    // Send the email
+    await sendEmail(user.email, 'Thank you for your order!', followUpEmailContent, user.password, user.email);
+
+    res.status(201).json({ message: 'Order submitted successfully', opportunityId: newOpportunity._id });
+  } catch (error) {
+    console.error('Error processing order:', error);
+    res.status(500).json({ error: 'Internal server error', message: error.message });
+  }
+});
+
+// Function to generate follow-up email content using OpenAI
+const generateFollowUpEmail = async (inquiryText, userEmail) => {
+  const emailResponse = await openai.chat.completions.create({
+    messages: [
+      { 
+        role: "system", 
+        content: "You are a helpful assistant tasked with writing professional follow-up emails. Write in a friendly but professional tone."
+      },
+      { 
+        role: "user", 
+        content: `Write a follow-up email for an order inquiry. The details are: ${inquiryText}. Include a thank you note and ask if they have any questions.`
+      }
+    ],
+    model: "deepseek-chat",
+  });
+
+  return emailResponse.choices[0].message.content;
+};
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI)
