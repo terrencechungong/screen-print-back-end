@@ -1,17 +1,23 @@
 const mongoose = require('mongoose');
 
 const OpportunitySchema = new mongoose.Schema({
-  value: {
-    type: Number,
+  name: {
+    type: String,
+    required: true,
+    default: 'Airesphone'
+  },
+  stage: {
+    type: String,
+    enum: ['CLOSED', 'CONTACTED', 'NEW LEAD', 'QUOTE SENT'],
     required: true
   },
-  invoiceGenerated: {
-    type: Boolean,
-    default: false
-  },
-  invoiceLink: {
+  source: {
     type: String,
-    default: ''
+    required: true
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
   },
   inquiry: {
     type: String,

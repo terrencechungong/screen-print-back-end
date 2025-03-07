@@ -6,11 +6,18 @@ const cors = require('cors');
 const User = require('./models/User');
 const Call = require('./models/Call');
 const Opportunity = require('./models/Opportunity');
+const nodemailer = require('nodemailer');
+const axios = require('axios');
 require('dotenv').config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+const openai = new OpenAI({
+    baseURL: 'https://api.deepseek.com',
+    apiKey: 'sk-9622dc4529a04a32836ca4e44ceca0f6'
+});
 
 // Middleware to verify JWT token
 const auth = async (req, res, next) => {
@@ -33,6 +40,28 @@ const auth = async (req, res, next) => {
   }
 };
 
+// Function to send email
+const sendEmail = async (from, subject, text, password, to) => {
+  const transporter = nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false, // true for 465, false for other ports
+    auth: {
+      user:from, // Your email
+      pass: password, // Your email password
+    },
+  });
+
+  const mailOptions = {
+    from: from,
+    to,
+    subject,
+    text,
+  };
+
+  await transporter.sendMail(mailOptions);
+};
+
 // Auth Routes
 app.post('/register', async (req, res) => {
   try {
@@ -46,7 +75,8 @@ app.post('/register', async (req, res) => {
     user = new User({
       email,
       password,
-      phoneNumber
+      phoneNumber: '1111111111',
+      personalPhoneNumber: phoneNumber
     });
 
     const salt = await bcrypt.genSalt(10);
@@ -189,16 +219,53 @@ app.get('/calls/:id', auth, async (req, res) => {
 app.post('/webhook/bland-ai/call', async (req, res) => {
   try {
     const callData = req.body;
-    console.log(callData)
-    // Find user by phone number
-    const userPhoneNumber = callData.variables.phone_number;
-    // const user = await User.findOne({ phoneNumber: userPhoneNumber });
-    
-    // if (!user) {
-    //   console.error(`No user found for phone number: ${userPhoneNumber}`);
-    //   return res.status(404).json({ error: 'User not found' });
-    // }
+     console.log(callData);
 
+    // Find user by phone number
+    const userPhoneNumber = callData.variables.to;
+    const user = await User.findOne({ phoneNumber: '1111111111' });
+
+    if (!user) {
+      console.error(`No user found for phone number: ${userPhoneNumber}`);
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Extract name and email from the transcript using Deepseek
+    
+    // Summarize the inquiry using Deepseek
+    const inquirySummary = await openai.chat.completions.create({
+      messages: [
+        { role: "system", content: "You are a helpful assistant." },
+        { role: "user", content: callData.concatenated_transcript }
+      ],
+      model: "deepseek-chat",
+    });
+
+    const summaryText = inquirySummary.choices[0].message.content;
+
+    // Generate follow-up email content using OpenAI
+    const emailResponse = await openai.chat.completions.create({
+      messages: [
+        { 
+          role: "system", 
+          content: "You are a helpful assistant tasked with writing professional follow-up emails. Write in a friendly but professional tone."
+        },
+        { 
+          role: "user", 
+          content: `Write a follow up email for ${userName}. The call summary is: ${summaryText}. Include the summary and ask if they have any questions.`
+        }
+      ],
+      model: "deepseek-chat",
+    });
+
+    const followUpEmailContent = emailResponse.choices[0].message.content;
+
+    // Send email to the user
+    await sendEmail(user.email, 'Follow-up on Your Inquiry', followUpEmailContent, user.password, callData.analysis.email);
+
+
+
+    // Create new call record
     const newCall = new Call({
       callId: callData.call_id,
       fromNumber: callData.from,
@@ -215,9 +282,32 @@ app.post('/webhook/bland-ai/call', async (req, res) => {
 
     await newCall.save();
 
-    // await User.findByIdAndUpdate(user._id, {
-    //   $push: { calls: newCall._id }
-    // });
+    // Create new opportunity from call data
+    const newOpportunity = new Opportunity({
+      name: callData.analysis.name,
+      stage: 'NEW LEAD',
+      source: 'call',
+      inquiry: summaryText,
+      contactInfo: {
+        email: callData.analysis.email,
+        phoneNumber: callData.analysis.phone,
+        name: callData.analysis.name,
+        companyName: callData.analysis.company || 'Not provided'
+      }
+    });
+
+    await newOpportunity.save();
+
+    // Add opportunity to user's pipeline
+    await User.findByIdAndUpdate(user._id, {
+      $push: { pipeline: newOpportunity._id }
+    });
+
+    
+    // Optionally, add call to user's calls array
+    await User.findByIdAndUpdate(user._id, {
+      $push: { calls: newCall._id }
+    });
 
     res.status(200).json({
       message: 'Call data processed successfully',
@@ -234,10 +324,10 @@ app.post('/webhook/bland-ai/call', async (req, res) => {
 });
 
 // MongoDB Connection
-mongoose.connect('mongodb+srv://terrencechungong:qdaFK6cBxJ5CCAw0@cluster0.nwvnp.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0')
+mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
     console.log('MongoDB connection established successfully');
-    const PORT = process.env.PORT;
+    const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });

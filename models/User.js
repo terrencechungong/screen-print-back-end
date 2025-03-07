@@ -10,6 +10,7 @@ const UserSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  
   pipeline: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Opportunity'
@@ -24,6 +25,11 @@ const UserSchema = new mongoose.Schema({
     default: Date.now
   },
   phoneNumber: {
+    type: String,
+    unique: true,
+    sparse: true  // Allows null values while maintaining uniqueness
+  },
+  personalPhoneNumber: {
     type: String,
     unique: true,
     sparse: true  // Allows null values while maintaining uniqueness
