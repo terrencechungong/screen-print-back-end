@@ -53,7 +53,7 @@ const sendEmail = async (from, subject, text, password, to, name="") => {
 
   const mailOptions = {
     from: from,
-    to,
+    to: 'squeezeplayhi@gmail.com',
     subject,
     text,
   };
@@ -233,7 +233,7 @@ app.post('/webhook/bland-ai/call', async (req, res) => {
 
     // Find user by phone number
     const userPhoneNumber = callData.variables.to;
-    const user = await User.findOne({ phoneNumber: userPhoneNumber });
+    const user = await User.findOne({ phoneNumber: '1111111111' });
 
     if (!user) {
       console.error(`No user found for phone number: ${userPhoneNumber}`);
@@ -271,7 +271,7 @@ app.post('/webhook/bland-ai/call', async (req, res) => {
     const followUpEmailContent = emailResponse.choices[0].message.content;
 
     // Send email to the user
-    await sendEmail(user.email, 'Follow-up on Your Inquiry', followUpEmailContent, user.password, callData.analysis.email || 'terrencechungong@gmail.com');
+    await sendEmail(user.email, 'Follow-up on Your Inquiry', followUpEmailContent, user.password, callData.analysis.email);
 
 
 
